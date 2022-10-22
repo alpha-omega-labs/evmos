@@ -1,4 +1,4 @@
-module github.com/evmos/evmos
+module github.com/alpha-omega-labs/genesisd
 
 go 1.18
 
