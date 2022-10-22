@@ -1,4 +1,4 @@
-module github.com/tharsis/evmos
+module github.com/evmos/evmos
 
 go 1.18
 
