@@ -164,3 +164,4 @@ replace github.com/99designs/keyring => github.com/cosmos/keyring v1.1.7-0.20210
 
 // TODO: remove once v0.45 has been released
 // replace github.com/cosmos/cosmos-sdk => github.com/tharsis/cosmos-sdk v0.44.3-olympus
+replace github.com/tharsis/evmos => github.com/evmos/evmos v0.3.0
