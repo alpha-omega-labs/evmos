@@ -62,10 +62,10 @@ func Setup(isCheckTx bool, feemarketGenesis *feemarkettypes.GenesisState) *Evmos
 	// generate genesis account
 	senderPrivKey := secp256k1.GenPrivKey()
 	acc := authtypes.NewBaseAccount(senderPrivKey.PubKey().Address().Bytes(), senderPrivKey.PubKey(), 0, 0)
-	balance := banktypes.Balance{
+	balance := []banktypes.Balance{{
 		Address: acc.GetAddress().String(),
 		Coins:   sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewInt(100000000000000))),
-	}
+	}}
 
 	db := dbm.NewMemDB()
 	app := NewEvmos(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, encoding.MakeConfig(ModuleBasics), simapp.EmptyAppOptions{})
@@ -112,7 +112,7 @@ func SetupTestingApp() (ibctesting.TestingApp, map[string]json.RawMessage) {
 
 func GenesisStateWithValSet(app *Evmos, genesisState simapp.GenesisState,
 	valSet *tmtypes.ValidatorSet, genAccs []authtypes.GenesisAccount,
-	balances ...banktypes.Balance,
+	balances []banktypes.Balance,
 ) simapp.GenesisState {
 	// set genesis accounts
 	authGenesis := authtypes.NewGenesisState(authtypes.DefaultParams(), genAccs)

@@ -25,6 +25,7 @@ import (
 	tmversion "github.com/tendermint/tendermint/proto/tendermint/version"
 	"github.com/tendermint/tendermint/version"
 
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/evmos/ethermint/crypto/ethsecp256k1"
@@ -38,6 +39,9 @@ import (
 	"github.com/tharsis/evmos/app"
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 	"github.com/tharsis/evmos/x/intrarelayer/types/contracts"
+
+	"github.com/cosmos/ibc-go/v6/testing/mock"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 type KeeperTestSuite struct {
@@ -65,6 +69,16 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 	suite.address = common.BytesToAddress(priv.PubKey().Address().Bytes())
 	suite.signer = tests.NewSigner(priv)
 
+	privVal := mock.NewPV()
+	pubKey, err := privVal.GetPubKey()
+	if err != nil {
+		panic(err)
+	}
+
+	// create validator set with single validator
+	genValidator := tmtypes.NewValidator(pubKey, 1)
+	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{genValidator})
+
 	// consensus key
 	priv, err = ethsecp256k1.GenerateKey()
 	require.NoError(t, err)
@@ -76,21 +90,28 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 	feemarketGenesis.Params.NoBaseFee = false
 	suite.app = app.Setup(checkTx, feemarketGenesis)
 
+	senderPrivKey := secp256k1.GenPrivKey()
+	acc := authtypes.NewBaseAccount(senderPrivKey.PubKey().Address().Bytes(), senderPrivKey.PubKey(), 0, 0)
+
+	// balance := banktypes.Balance{
+	// 	Address: acc.GetAddress().String(),
+	// 	Coins:   sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt(100000000000000))),
+	// }
+
 	if suite.mintFeeCollector {
 		// mint some coin to fee collector
 		coins := sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt(int64(params.TxGas)-1)))
+		balances := []banktypes.Balance{{
+			Address: suite.app.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName).String(),
+			Coins:   coins,
+		}}
 		genesisState := app.ModuleBasics.DefaultGenesis(suite.app.AppCodec())
-		balances := []banktypes.Balance{
-			{
-				Address: suite.app.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName).String(),
-				Coins:   coins,
-			},
-		}
+		genesisState = app.GenesisStateWithValSet(suite.app, genesisState, valSet, []authtypes.GenesisAccount{acc}, balances)
 		// update total supply
-		bankGenesis := banktypes.NewGenesisState(banktypes.DefaultGenesisState().Params, balances, sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt((int64(params.TxGas)-1)))), []banktypes.Metadata{})
-		bz := suite.app.AppCodec().MustMarshalJSON(bankGenesis)
-		require.NotNil(t, bz)
-		genesisState[banktypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(bankGenesis)
+		// bankGenesis := banktypes.NewGenesisState(banktypes.DefaultGenesisState().Params, []banktypes.Balance{balance}, sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt((int64(params.TxGas)-1)))), []banktypes.Metadata{})
+		// bz := suite.app.AppCodec().MustMarshalJSON(bankGenesis)
+		// require.NotNil(t, bz)
+		// genesisState[banktypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(bankGenesis)
 
 		// we marshal the genesisState of all module to a byte array
 		stateBytes, err := tmjson.MarshalIndent(genesisState, "", " ")
@@ -139,12 +160,12 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 	types.RegisterQueryServer(queryHelper, suite.app.IntrarelayerKeeper)
 	suite.queryClient = types.NewQueryClient(queryHelper)
 
-	acc := &ethermint.EthAccount{
+	ethAcc := &ethermint.EthAccount{
 		BaseAccount: authtypes.NewBaseAccount(sdk.AccAddress(suite.address.Bytes()), nil, 0, 0),
 		CodeHash:    common.BytesToHash(crypto.Keccak256(nil)).String(),
 	}
 
-	suite.app.AccountKeeper.SetAccount(suite.ctx, acc)
+	suite.app.AccountKeeper.SetAccount(suite.ctx, ethAcc)
 
 	valAddr := sdk.ValAddress(suite.address.Bytes())
 	validator, err := stakingtypes.NewValidator(valAddr, priv.PubKey(), stakingtypes.Description{})

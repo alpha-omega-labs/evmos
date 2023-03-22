@@ -266,6 +266,7 @@ func (suite *KeeperTestSuite) TestConvertCoinNativeERC20() {
 				suite.Require().Equal(balance.(*big.Int).Int64(), big.NewInt(tc.mint-tc.burn+tc.reconvert).Int64())
 
 			} else {
+				fmt.Println("hello")
 				suite.Require().Error(err, tc.name)
 			}
 		})
