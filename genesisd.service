@@ -1,0 +1,15 @@
+[Unit]
+Description=genesisd daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root
+ExecStart=/root/go/bin/genesisd start --log_level info
+Restart=on-failure
+RestartSec=60 
+LimitNOFILE=50000 
+
+[Install]
+WantedBy=multi-user.target

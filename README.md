@@ -1,81 +1,35 @@
-<!--
-parent:
-  order: false
--->
+# GenesisL1
 
-<div align="center">
-  <h1> Evmos </h1>
-</div>
+Some fellow and his friends wish to store genetic information as NFTs on a chain.  install and sync this one like this:
 
-<!-- TODO: add banner -->
-<!-- ![banner](docs/ethermint.jpg) -->
+bash scripts/statesync.bash
 
-<div align="center">
-  <a href="https://github.com/tharsis/evmos/releases/latest">
-    <img alt="Version" src="https://img.shields.io/github/tag/tharsis/evmos.svg" />
-  </a>
-  <a href="https://github.com/tharsis/evmos/blob/main/LICENSE">
-    <img alt="License: Apache-2.0" src="https://img.shields.io/github/license/tharsis/evmos.svg" />
-  </a>
-  <a href="https://pkg.go.dev/github.com/tharsis/evmos">
-    <img alt="GoDoc" src="https://godoc.org/github.com/tharsis/evmos?status.svg" />
-  </a>
-  <a href="https://goreportcard.com/report/github.com/tharsis/evmos">
-    <img alt="Go report card" src="https://goreportcard.com/badge/github.com/tharsis/evmos"/>
-  </a>
-  <a href="https://bestpractices.coreinfrastructure.org/projects/5018">
-    <img alt="Lines of code" src="https://img.shields.io/tokei/lines/github/tharsis/evmos">
-  </a>
-</div>
-<div align="center">
-  <a href="https://discord.gg/trje9XuAmy">
-    <img alt="Discord" src="https://img.shields.io/discord/809048090249134080.svg" />
-  </a>
-  <a href="https://github.com/tharsis/evmos/actions?query=branch%3Amain+workflow%3ALint">
-    <img alt="Lint Status" src="https://github.com/tharsis/evmos/actions/workflows/lint.yml/badge.svg?branch=main" />
-  </a>
-  <a href="https://codecov.io/gh/tharsis/evmos">
-    <img alt="Code Coverage" src="https://codecov.io/gh/tharsis/evmos/branch/main/graph/badge.svg" />
-  </a>
-  <a href="https://twitter.com/EvmosOrg">
-    <img alt="Twitter Follow Evmos" src="https://img.shields.io/twitter/follow/EvmosOrg"/>
-  </a>
-</div>
 
-Evmos is a scalable, high-throughput Proof-of-Stake blockchain that is fully compatible and
-interoperable with Ethereum. It's built using the [Cosmos SDK](https://github.com/cosmos/cosmos-sdk/) which runs on top of [Tendermint Core](https://github.com/tendermint/tendermint) consensus engine.
 
-**Note**: Requires [Go 1.17+](https://golang.org/dl/)
 
-## Installation
 
-For prerequisites and detailed build instructions please read the [Installation](https://evmos.dev/quickstart/installation.html) instructions. Once the dependencies are installed, run:
 
-```bash
-make install
-```
+<h2>GenesisL1 fast installation scripts</h2>
+root user, tested on clean Ubuntu 20.04 LTS </br>
+<li><h3>Update genesis_29-1 to genesis_29-2:</h3>
+<code>sh update.sh</code></br>
+full command on clean new machine with installed git:</br>
+<pre>sudo swapoff -a; git clone https://github.com/alpha-omega-labs/genesisd.git; cd genesisd; sh update.sh</pre>
 
-Or check out the latest [release](https://github.com/tharsis/evmos/releases).
+<li><h3>Install genesis_29-2 full node (suitable for validator):</h3></li>
+$YOUR_NEW_NODE_NAME should be changed to any node name you like.</br>
+<code>sh genesisd-node.sh $YOUR_NEW_NODE_NAME</code></br>
+full command on clean new machine with installed git:</br>
+<pre>sudo swapoff -a; git clone https://github.com/alpha-omega-labs/genesisd.git; cd genesisd; sh genesisd-node.sh $YOUR_NEW_NODE_NAME</pre>
 
-## Quick Start
+<li><h3>Install genesis_29-2 full node with EVM RPC-API enabled (not suitable for validator):</h3></li>
+$YOUR_NEW_NODE_NAME should be changed to any node name you like.</br>
+<code>sh genesisd-rpc-node.sh $YOUR_NEW_NODE_NAME</code></br>
+full command on clean new machine with installed git:</br>
+<pre>sudo swapoff -a; git clone https://github.com/alpha-omega-labs/genesisd.git; cd genesisd; sh genesisd-rpc-node.sh $YOUR_NEW_NODE_NAME</pre>
 
-To learn how the Evmos works from a high-level perspective, go to the [Introduction](https://evmos.dev/intro/overview.html) section from the documentation. You can also check the instructions to [Run a Node](https://evmos.dev/quickstart/run_node.html).
-
-## Community
-
-The following chat channels and forums are a great spot to ask questions about Evmos:
-
-- [Evmos Twitter](https://twitter.com/EvmosOrg)
-- [Evmos Discord](https://discord.gg/trje9XuAmy)
-- [Evmos Forum](https://forum.cosmos.network/c/ethermint)
-- [Tharsis Twitter](https://twitter.com/TharsisHQ)
-
-## Contributing
-
-Looking for a good place to start contributing? Check out some [`good first issues`](https://github.com/tharsis/evmos/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22).
-
-For additional instructions, standards and style guides, please refer to the [Contributing](./CONTRIBUTING.md) document.
-
-## Careers
-
-See our open positions on [Cosmos Jobs](https://jobs.cosmos.network/project/evmos-d0sk1uxuh-remote/), [Notion](https://tharsis.notion.site), or feel free to [reach out](mailto:careers@thars.is) via email.
+<li><h3>Create validator of genesis_29-2 </h3></li>
+<strong>With imported Ethereum private key, with some L1 coins belonging to that key. Start after the genesisd-node.sh and full sync!</strong></br>
+<code>sh create-validator-ethpk.sh $YOUR_VALIDATOR_NAME YOUR_PRIVATE_KEY $AMOUNT_EL1_STAKED $COMMISSION_RATE</code></br>
+Example to create validator named "supervalidator" with 1000L1 self staked and 10% commission for delegators:</br>
+<pre>sh create-validator-ethpk.sh supervalidator 58a86862565e596bcf185d699ef4db6a8f02f6696f4a3fe6ff5cf5c0b451c866 1000000000000000000000 0.1</pre>

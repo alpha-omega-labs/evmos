@@ -7,7 +7,7 @@ TMVERSION := $(shell go list -m github.com/tendermint/tendermint | sed 's:.* ::'
 COMMIT := $(shell git log -1 --format='%H')
 LEDGER_ENABLED ?= true
 BINDIR ?= $(GOPATH)/bin
-EVMOS_BINARY = evmosd
+EVMOS_BINARY = genesisd
 EVMOS_DIR = evmos
 BUILDDIR ?= $(CURDIR)/build
 SIMAPP = ./app

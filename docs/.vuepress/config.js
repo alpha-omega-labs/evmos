@@ -207,7 +207,7 @@ module.exports = {
             },
             {
               title: 'Ethermint Library API Reference',
-              path: 'https://pkg.go.dev/github.com/tharsis/ethermint'
+              path: 'https://pkg.go.dev/github.com/evmos/ethermint'
             },
             {
               title: 'JSON-RPC API Reference',

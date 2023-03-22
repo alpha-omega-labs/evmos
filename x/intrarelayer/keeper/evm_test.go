@@ -2,8 +2,8 @@ package keeper_test
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/tharsis/ethermint/tests"
-	evmtypes "github.com/tharsis/ethermint/x/evm/types"
+	"github.com/evmos/ethermint/tests"
+	evmtypes "github.com/evmos/ethermint/x/evm/types"
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 	"github.com/tharsis/evmos/x/intrarelayer/types/contracts"
 )

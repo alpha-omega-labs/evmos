@@ -5,7 +5,7 @@ import (
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/tharsis/ethermint/tests"
+	"github.com/evmos/ethermint/tests"
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 )
 

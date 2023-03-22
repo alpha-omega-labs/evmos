@@ -27,14 +27,14 @@ import (
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/evmos/ethermint/crypto/ethsecp256k1"
+	"github.com/evmos/ethermint/encoding"
+	"github.com/evmos/ethermint/server/config"
+	"github.com/evmos/ethermint/tests"
+	ethermint "github.com/evmos/ethermint/types"
+	evm "github.com/evmos/ethermint/x/evm/types"
+	feemarkettypes "github.com/evmos/ethermint/x/feemarket/types"
 	tmjson "github.com/tendermint/tendermint/libs/json"
-	"github.com/tharsis/ethermint/crypto/ethsecp256k1"
-	"github.com/tharsis/ethermint/encoding"
-	"github.com/tharsis/ethermint/server/config"
-	"github.com/tharsis/ethermint/tests"
-	ethermint "github.com/tharsis/ethermint/types"
-	evm "github.com/tharsis/ethermint/x/evm/types"
-	feemarkettypes "github.com/tharsis/ethermint/x/feemarket/types"
 	"github.com/tharsis/evmos/app"
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 	"github.com/tharsis/evmos/x/intrarelayer/types/contracts"
@@ -74,7 +74,6 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 	feemarketGenesis := feemarkettypes.DefaultGenesisState()
 	feemarketGenesis.Params.EnableHeight = 1
 	feemarketGenesis.Params.NoBaseFee = false
-	feemarketGenesis.BaseFee = sdk.NewInt(feemarketGenesis.Params.InitialBaseFee)
 	suite.app = app.Setup(checkTx, feemarketGenesis)
 
 	if suite.mintFeeCollector {
@@ -132,8 +131,6 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 		ConsensusHash:      tmhash.Sum([]byte("consensus")),
 		LastResultsHash:    tmhash.Sum([]byte("last_result")),
 	})
-	suite.app.EvmKeeper.WithContext(suite.ctx)
-
 	queryHelperEvm := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
 	evm.RegisterQueryServer(queryHelperEvm, suite.app.EvmKeeper)
 	suite.queryClientEvm = evm.NewQueryClient(queryHelperEvm)
@@ -186,7 +183,7 @@ func (suite *KeeperTestSuite) DeployContract(name string, symbol string) common.
 	})
 	suite.Require().NoError(err)
 
-	nonce := suite.app.EvmKeeper.GetNonce(suite.address)
+	nonce := suite.app.EvmKeeper.GetNonce(suite.ctx, suite.address)
 
 	erc20DeployTx := evm.NewTxContract(
 		chainID,
@@ -219,7 +216,6 @@ func (suite *KeeperTestSuite) Commit() {
 
 	// update ctx
 	suite.ctx = suite.app.BaseApp.NewContext(false, header)
-	suite.app.EvmKeeper.WithContext(suite.ctx)
 
 	queryHelper := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
 	evm.RegisterQueryServer(queryHelper, suite.app.EvmKeeper)
@@ -262,7 +258,7 @@ func (suite *KeeperTestSuite) sendTx(contractAddr, from common.Address, transfer
 	})
 	suite.Require().NoError(err)
 
-	nonce := suite.app.EvmKeeper.GetNonce(suite.address)
+	nonce := suite.app.EvmKeeper.GetNonce(suite.ctx, suite.address)
 
 	ercTransferTx := evm.NewTx(
 		chainID,

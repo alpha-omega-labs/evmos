@@ -5,7 +5,9 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 )
@@ -35,7 +37,12 @@ func (suite *KeeperTestSuite) TestAfterProposalDeposit() {
 				suite.app.IntrarelayerKeeper.SetParams(suite.ctx, params)
 
 				content := types.NewRegisterERC20Proposal("title", "desc", common.Address{}.String())
-				proposal, err := govtypes.NewProposal(content, proposalID, time.Now().UTC(), time.Now().UTC())
+				message, err := govv1.NewLegacyContent(content, authtypes.NewModuleAddress(govtypes.ModuleName).String())
+				suite.Require().NoError(err)
+
+				messages := []sdk.Msg{message}
+
+				proposal, err := govv1.NewProposal(messages, proposalID, "", time.Now().UTC(), time.Now().UTC())
 				suite.Require().NoError(err)
 
 				suite.app.GovKeeper.ActivateVotingPeriod(suite.ctx, proposal)
@@ -49,7 +56,12 @@ func (suite *KeeperTestSuite) TestAfterProposalDeposit() {
 				suite.app.IntrarelayerKeeper.SetParams(suite.ctx, params)
 
 				content := types.NewRegisterERC20Proposal("title", "desc", common.Address{}.String())
-				proposal, err := govtypes.NewProposal(content, proposalID, time.Now().UTC(), time.Now().UTC())
+				message, err := govv1.NewLegacyContent(content, authtypes.NewModuleAddress(govtypes.ModuleName).String())
+				suite.Require().NoError(err)
+
+				messages := []sdk.Msg{message}
+
+				proposal, err := govv1.NewProposal(messages, proposalID, "", time.Now().UTC(), time.Now().UTC())
 				suite.Require().NoError(err)
 
 				//activate proposal
@@ -57,7 +69,7 @@ func (suite *KeeperTestSuite) TestAfterProposalDeposit() {
 
 				// override proposal status
 				proposal, _ = suite.app.GovKeeper.GetProposal(suite.ctx, proposalID)
-				proposal.Status = govtypes.ProposalStatus(0)
+				proposal.Status = govv1.ProposalStatus(0)
 				suite.app.GovKeeper.SetProposal(suite.ctx, proposal)
 
 				// update params after proposal creation
@@ -73,7 +85,12 @@ func (suite *KeeperTestSuite) TestAfterProposalDeposit() {
 				suite.app.IntrarelayerKeeper.SetParams(suite.ctx, params)
 
 				content := types.NewRegisterERC20Proposal("title", "desc", common.Address{}.String())
-				proposal, err := govtypes.NewProposal(content, proposalID, time.Now().UTC(), time.Now().UTC())
+				message, err := govv1.NewLegacyContent(content, authtypes.NewModuleAddress(govtypes.ModuleName).String())
+				suite.Require().NoError(err)
+
+				messages := []sdk.Msg{message}
+
+				proposal, err := govv1.NewProposal(messages, proposalID, "", time.Now().UTC(), time.Now().UTC())
 				suite.Require().NoError(err)
 
 				suite.app.GovKeeper.ActivateVotingPeriod(suite.ctx, proposal)
@@ -98,11 +115,11 @@ func (suite *KeeperTestSuite) TestAfterProposalDeposit() {
 			if tc.noOp {
 				suite.Require().True(ok)
 				// Proposal time was updated
-				suite.Require().Equal(proposal.VotingEndTime, proposal.VotingStartTime.Add(newVotingPeriod))
+				suite.Require().Equal(*proposal.VotingEndTime, proposal.VotingStartTime.Add(newVotingPeriod))
 			} else {
 				suite.Require().True(ok)
 				// Proposal time was not updated
-				suite.Require().Equal(proposal.VotingEndTime, proposal.VotingStartTime.Add(votingPeriod))
+				suite.Require().Equal(*proposal.VotingEndTime, proposal.VotingStartTime.Add(votingPeriod))
 			}
 		})
 	}
