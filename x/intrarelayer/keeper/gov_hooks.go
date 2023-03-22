@@ -1,8 +1,10 @@
 package keeper
 
 import (
+	"strings"
 	"time"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
@@ -42,29 +44,29 @@ func (k Keeper) AfterProposalDeposit(ctx sdk.Context, proposalID uint64, _ sdk.A
 
 	message := proposal.GetMessages()[0]
 
-	sdkMsg := &govv1.MsgExecLegacyContent{}
+	// sdkMsg := &govv1.MsgExecLegacyContent{
+	// 	Content:   message,
+	// 	Authority: authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	// }
 
-	err := proto.Unmarshal(message.Value, sdkMsg)
-	if err != nil {
-		return
-	}
+	decodeMsg := new(codectypes.Any)
 
-	content, err := govv1.LegacyContentFromMessage(sdkMsg)
+	err := proto.Unmarshal(message.Value, decodeMsg)
 	if err != nil {
 		return
 	}
 
 	// check if proposal content and type matches the given type
-	if content.ProposalType() != types.ProposalTypeRegisterCoin && content.ProposalType() != types.ProposalTypeRegisterERC20 {
+	if !strings.Contains(decodeMsg.TypeUrl, types.ProposalTypeRegisterCoin) && !strings.Contains(decodeMsg.TypeUrl, types.ProposalTypeRegisterERC20) {
 		return
 	}
 
-	switch content.(type) {
-	case *types.RegisterCoinProposal, *types.RegisterERC20Proposal:
-		// valid proposal types
-	default:
-		return
-	}
+	// switch content.(type) {
+	// case *types.RegisterCoinProposal, *types.RegisterERC20Proposal:
+	// 	// valid proposal types
+	// default:
+	// 	return
+	// }
 
 	originalEndTime := proposal.VotingEndTime
 	votingEndTime := proposal.VotingStartTime.Add(newVotingPeriod)
