@@ -17,7 +17,7 @@ Evmos will also offer built-in interoperability functionalities with other Cosmo
 
 ## EVM module dependency
 
-The EVM module (aka [x/evm](https://github.com/tharsis/ethermint/tree/main/x/evm)) packaged inside
+The EVM module (aka [x/evm](https://github.com/evmos/ethermint/tree/main/x/evm)) packaged inside
 Evmos can be used separately as its own standalone module. This can be added as a dependency to
 any Cosmos chain, which will allow for smart contract support.
 

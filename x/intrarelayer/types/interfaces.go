@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
 
 // AccountKeeper defines the expected interface needed to retrieve account info.
@@ -35,9 +35,9 @@ type EVMKeeper interface{}
 // GovKeeper defines the expected governance keeper interface used on intrarelayer
 type GovKeeper interface {
 	Logger(sdk.Context) log.Logger
-	GetVotingParams(ctx sdk.Context) govtypes.VotingParams
-	GetProposal(ctx sdk.Context, proposalID uint64) (govtypes.Proposal, bool)
+	GetVotingParams(ctx sdk.Context) govv1.VotingParams
+	GetProposal(ctx sdk.Context, proposalID uint64) (govv1.Proposal, bool)
 	InsertActiveProposalQueue(ctx sdk.Context, proposalID uint64, timestamp time.Time)
 	RemoveFromActiveProposalQueue(ctx sdk.Context, proposalID uint64, timestamp time.Time)
-	SetProposal(ctx sdk.Context, proposal govtypes.Proposal)
+	SetProposal(ctx sdk.Context, proposal govv1.Proposal)
 }
