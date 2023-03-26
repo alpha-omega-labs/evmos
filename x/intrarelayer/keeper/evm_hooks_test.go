@@ -29,24 +29,7 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 				suite.Commit()
 
 				// Burn the 10 tokens of suite.address (owner)
-				msg := suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
-				txHash := msg.AsTransaction().Hash()
-				vmdb := statedb.New(suite.ctx, suite.app.EvmKeeper, statedb.NewTxConfig(
-					common.BytesToHash(suite.ctx.HeaderHash().Bytes()),
-					txHash,
-					0,
-					0,
-				))
-				logs := vmdb.Logs()
-
-				receipt := &ethtypes.Receipt{
-					TxHash: txHash,
-					Logs:   logs,
-				}
-
-				// After this execution, the burned tokens will be available on the cosmos chain
-				err = suite.app.IntrarelayerKeeper.PostTxProcessing(suite.ctx, ethtypes.Message{}, receipt)
-				suite.Require().NoError(err)
+				_ = suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
 			},
 			true,
 		},
@@ -58,24 +41,7 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 				suite.Commit()
 
 				// Burn the 10 tokens of suite.address (owner)
-				msg := suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
-				txHash := msg.AsTransaction().Hash()
-				vmdb := statedb.New(suite.ctx, suite.app.EvmKeeper, statedb.NewTxConfig(
-					common.BytesToHash(suite.ctx.HeaderHash().Bytes()),
-					txHash,
-					0,
-					0,
-				))
-				logs := vmdb.Logs()
-
-				receipt := &ethtypes.Receipt{
-					TxHash: txHash,
-					Logs:   logs,
-				}
-
-				// Since theres no pair registered, no coins should be minted
-				err := suite.app.IntrarelayerKeeper.PostTxProcessing(suite.ctx, ethtypes.Message{}, receipt)
-				suite.Require().NoError(err)
+				_ = suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
 			},
 			false,
 		},
@@ -86,24 +52,7 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 				suite.Require().NoError(err)
 
 				// Mint 10 tokens to suite.address (owner)
-				msg := suite.MintERC20Token(contractAddr, suite.address, suite.address, big.NewInt(10))
-				txHash := msg.AsTransaction().Hash()
-				vmdb := statedb.New(suite.ctx, suite.app.EvmKeeper, statedb.NewTxConfig(
-					common.BytesToHash(suite.ctx.HeaderHash().Bytes()),
-					txHash,
-					0,
-					0,
-				))
-				logs := vmdb.Logs()
-
-				receipt := &ethtypes.Receipt{
-					TxHash: txHash,
-					Logs:   logs,
-				}
-
-				// No coins should be minted on cosmos after a mint of the erc20 token
-				err = suite.app.IntrarelayerKeeper.PostTxProcessing(suite.ctx, ethtypes.Message{}, receipt)
-				suite.Require().NoError(err)
+				_ = suite.MintERC20Token(contractAddr, suite.address, suite.address, big.NewInt(10))
 			},
 			false,
 		},
@@ -113,19 +62,23 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 			suite.mintFeeCollector = true
 			suite.SetupTest()
 
-			contractAddr := suite.DeployContract("coin", "token")
+			contractAddr, err := suite.DeployContract("coin", "token")
+			suite.Require().NoError(err)
 			suite.Commit()
+
+			fmt.Println(contractAddr)
 
 			tc.malleate(contractAddr)
 
 			balance := suite.app.BankKeeper.GetBalance(suite.ctx, sdk.AccAddress(suite.address.Bytes()), types.CreateDenom(contractAddr.String()))
+			fmt.Println(balance)
 			suite.Commit()
 			if tc.result {
 				// Check if the execution was successfull
-				suite.Require().Equal(balance.Amount, sdk.NewInt(10))
+				suite.Require().Equal(int64(10), balance.Amount.Int64())
 			} else {
 				// Check that no changes were made to the account
-				suite.Require().Equal(balance.Amount, sdk.NewInt(0))
+				suite.Require().Equal(int64(0), balance.Amount.Int64())
 			}
 		})
 	}

@@ -22,7 +22,7 @@ func (suite *KeeperTestSuite) TestQueryERC20() {
 		},
 		{
 			"ok",
-			func() { contract = suite.DeployContract("coin", "token") },
+			func() { contract, _ = suite.DeployContract("coin", "token") },
 			true,
 		},
 	}
@@ -65,10 +65,11 @@ func (suite *KeeperTestSuite) TestCallEVM() {
 		suite.SetupTest() // reset
 
 		erc20 := contracts.ERC20BurnableAndMintableContract.ABI
-		contract := suite.DeployContract("coin", "token")
+		contract, err := suite.DeployContract("coin", "token")
+		suite.Require().NoError(err)
 		account := tests.GenerateAddress()
 
-		res, err := suite.app.IntrarelayerKeeper.CallEVM(suite.ctx, erc20, types.ModuleAddress, contract, tc.method, account)
+		res, err := suite.app.IntrarelayerKeeper.CallEVM(suite.ctx, erc20, types.ModuleAddress, contract, true, tc.method, account)
 		if tc.expPass {
 			suite.Require().IsTypef(&evmtypes.MsgEthereumTxResponse{}, res, tc.name)
 			suite.Require().NoError(err)

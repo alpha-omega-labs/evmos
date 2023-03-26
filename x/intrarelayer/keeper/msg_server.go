@@ -20,7 +20,7 @@ func (k Keeper) ConvertCoin(goCtx context.Context, msg *types.MsgConvertCoin) (*
 
 	// Error checked during msg validation
 	receiver := common.HexToAddress(msg.Receiver)
-	sender, _ := sdk.AccAddressFromBech32(msg.Sender)
+	sender := sdk.MustAccAddressFromBech32(msg.Sender)
 
 	pair, err := k.MintingEnabled(ctx, sender, receiver.Bytes(), msg.Coin.Denom)
 	if err != nil {
@@ -88,7 +88,7 @@ func (k Keeper) convertCoinNativeCoin(
 	}
 
 	// Mint Tokens and send to receiver
-	_, err := k.CallEVM(ctx, erc20, types.ModuleAddress, contract, "mint", receiver, msg.Coin.Amount.BigInt())
+	_, err := k.CallEVM(ctx, erc20, types.ModuleAddress, contract, true, "mint", receiver, msg.Coin.Amount.BigInt())
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (k Keeper) convertCoinNativeERC20(
 	}
 
 	// Unescrow Tokens and send to receiver
-	res, err := k.CallEVM(ctx, erc20, types.ModuleAddress, contract, "transfer", receiver, msg.Coin.Amount.BigInt())
+	res, err := k.CallEVM(ctx, erc20, types.ModuleAddress, contract, true, "transfer", receiver, msg.Coin.Amount.BigInt())
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (k Keeper) convertERC20NativeCoin(
 	erc20 := contracts.ERC20BurnableAndMintableContract.ABI
 	contract := pair.GetERC20Contract()
 
-	_, err := k.CallEVM(ctx, erc20, types.ModuleAddress, contract, "burnCoins", sender, msg.Amount.BigInt())
+	_, err := k.CallEVM(ctx, erc20, types.ModuleAddress, contract, true, "burnCoins", sender, msg.Amount.BigInt())
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (k Keeper) convertERC20NativeToken(
 	if err != nil {
 		return nil, err
 	}
-	res, err := k.CallEVMWithPayload(ctx, sender, &contract, transferData)
+	res, err := k.CallEVMWithPayload(ctx, sender, &contract, transferData, true)
 	if err != nil {
 		return nil, err
 	}

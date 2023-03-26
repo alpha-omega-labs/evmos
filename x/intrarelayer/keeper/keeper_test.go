@@ -25,7 +25,6 @@ import (
 	tmversion "github.com/tendermint/tendermint/proto/tendermint/version"
 	"github.com/tendermint/tendermint/version"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/evmos/ethermint/crypto/ethsecp256k1"
@@ -40,6 +39,7 @@ import (
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 	"github.com/tharsis/evmos/x/intrarelayer/types/contracts"
 
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/ibc-go/v6/testing/mock"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
@@ -69,20 +69,11 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 	suite.address = common.BytesToAddress(priv.PubKey().Address().Bytes())
 	suite.signer = tests.NewSigner(priv)
 
-	privVal := mock.NewPV()
-	pubKey, err := privVal.GetPubKey()
-	if err != nil {
-		panic(err)
-	}
-
-	// create validator set with single validator
-	genValidator := tmtypes.NewValidator(pubKey, 1)
-	valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{genValidator})
-
 	// consensus key
-	priv, err = ethsecp256k1.GenerateKey()
+	privCons, err := ethsecp256k1.GenerateKey()
 	require.NoError(t, err)
-	suite.consAddress = sdk.ConsAddress(priv.PubKey().Address())
+	consAddress := sdk.ConsAddress(privCons.PubKey().Address())
+	suite.consAddress = consAddress
 
 	// setup feemarketGenesis params
 	feemarketGenesis := feemarkettypes.DefaultGenesisState()
@@ -90,23 +81,33 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 	feemarketGenesis.Params.NoBaseFee = false
 	suite.app = app.Setup(checkTx, feemarketGenesis)
 
-	senderPrivKey := secp256k1.GenPrivKey()
-	acc := authtypes.NewBaseAccount(senderPrivKey.PubKey().Address().Bytes(), senderPrivKey.PubKey(), 0, 0)
-
-	// balance := banktypes.Balance{
-	// 	Address: acc.GetAddress().String(),
-	// 	Coins:   sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt(100000000000000))),
-	// }
-
 	if suite.mintFeeCollector {
+		privVal := mock.NewPV()
+		pubKey, err := privVal.GetPubKey()
+		if err != nil {
+			panic(err)
+		}
+
+		// create validator set with single validator
+		genValidator := tmtypes.NewValidator(pubKey, 1)
+		valSet := tmtypes.NewValidatorSet([]*tmtypes.Validator{genValidator})
+
+		senderPrivKey := secp256k1.GenPrivKey()
+		acc := authtypes.NewBaseAccount(senderPrivKey.PubKey().Address().Bytes(), senderPrivKey.PubKey(), 0, 0)
+
+		balanceDel := banktypes.Balance{
+			Address: acc.GetAddress().String(),
+			Coins:   sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewInt(100000000000000))),
+		}
 		// mint some coin to fee collector
 		coins := sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt(int64(params.TxGas)-1)))
-		balances := []banktypes.Balance{{
+		genesisState := app.ModuleBasics.DefaultGenesis(suite.app.AppCodec())
+		balance := banktypes.Balance{
 			Address: suite.app.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName).String(),
 			Coins:   coins,
-		}}
-		genesisState := app.ModuleBasics.DefaultGenesis(suite.app.AppCodec())
-		genesisState = app.GenesisStateWithValSet(suite.app, genesisState, valSet, []authtypes.GenesisAccount{acc}, balances)
+		}
+
+		genesisState = app.GenesisStateWithValSet(suite.app, genesisState, valSet, []authtypes.GenesisAccount{acc}, balanceDel, balance)
 		// update total supply
 		// bankGenesis := banktypes.NewGenesisState(banktypes.DefaultGenesisState().Params, []banktypes.Balance{balance}, sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt((int64(params.TxGas)-1)))), []banktypes.Metadata{})
 		// bz := suite.app.AppCodec().MustMarshalJSON(bankGenesis)
@@ -184,25 +185,31 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.DoSetupTest(suite.T())
 }
 
-func (suite *KeeperTestSuite) DeployContract(name string, symbol string) common.Address {
+func (suite *KeeperTestSuite) DeployContract(name string, symbol string) (common.Address, error) {
 	ctx := sdk.WrapSDKContext(suite.ctx)
 	chainID := suite.app.EvmKeeper.ChainID()
 
 	ctorArgs, err := contracts.ERC20BurnableAndMintableContract.ABI.Pack("", name, symbol)
-	suite.Require().NoError(err)
+	if err != nil {
+		return common.Address{}, err
+	}
 
 	data := append(contracts.ERC20BurnableAndMintableContract.Bin, ctorArgs...)
 	args, err := json.Marshal(&evm.TransactionArgs{
 		From: &suite.address,
 		Data: (*hexutil.Bytes)(&data),
 	})
-	suite.Require().NoError(err)
+	if err != nil {
+		return common.Address{}, err
+	}
 
 	res, err := suite.queryClientEvm.EstimateGas(ctx, &evm.EthCallRequest{
 		Args:   args,
 		GasCap: uint64(config.DefaultGasCap),
 	})
-	suite.Require().NoError(err)
+	if err != nil {
+		return common.Address{}, err
+	}
 
 	nonce := suite.app.EvmKeeper.GetNonce(suite.ctx, suite.address)
 
@@ -220,11 +227,15 @@ func (suite *KeeperTestSuite) DeployContract(name string, symbol string) common.
 
 	erc20DeployTx.From = suite.address.Hex()
 	err = erc20DeployTx.Sign(ethtypes.LatestSignerForChainID(chainID), suite.signer)
-	suite.Require().NoError(err)
+	if err != nil {
+		return common.Address{}, err
+	}
 	rsp, err := suite.app.EvmKeeper.EthereumTx(ctx, erc20DeployTx)
-	suite.Require().NoError(err)
+	if err != nil {
+		return common.Address{}, err
+	}
 	suite.Require().Empty(rsp.VmError)
-	return crypto.CreateAddress(suite.address, nonce)
+	return crypto.CreateAddress(suite.address, nonce), nil
 }
 
 func (suite *KeeperTestSuite) Commit() {
@@ -267,6 +278,13 @@ func (suite *KeeperTestSuite) GrantERC20Token(contractAddr, from, to common.Addr
 	return suite.sendTx(contractAddr, from, transferData)
 }
 
+func (suite *KeeperTestSuite) MintFeeCollector(coins sdk.Coins) {
+	err := suite.app.BankKeeper.MintCoins(suite.ctx, types.ModuleName, coins)
+	suite.Require().NoError(err)
+	err = suite.app.BankKeeper.SendCoinsFromModuleToModule(suite.ctx, types.ModuleName, authtypes.FeeCollectorName, coins)
+	suite.Require().NoError(err)
+}
+
 func (suite *KeeperTestSuite) sendTx(contractAddr, from common.Address, transferData []byte) *evm.MsgEthereumTx {
 	ctx := sdk.WrapSDKContext(suite.ctx)
 	chainID := suite.app.EvmKeeper.ChainID()
@@ -280,6 +298,9 @@ func (suite *KeeperTestSuite) sendTx(contractAddr, from common.Address, transfer
 	suite.Require().NoError(err)
 
 	nonce := suite.app.EvmKeeper.GetNonce(suite.ctx, suite.address)
+
+	// Mint the max gas to the FeeCollector to ensure balance in case of refund
+	suite.MintFeeCollector(sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt(suite.app.FeeMarketKeeper.GetBaseFee(suite.ctx).Int64()*int64(res.Gas)))))
 
 	ercTransferTx := evm.NewTx(
 		chainID,
@@ -306,7 +327,7 @@ func (suite *KeeperTestSuite) sendTx(contractAddr, from common.Address, transfer
 func (suite *KeeperTestSuite) BalanceOf(contract, account common.Address) interface{} {
 	erc20 := contracts.ERC20BurnableAndMintableContract.ABI
 
-	res, err := suite.app.IntrarelayerKeeper.CallEVM(suite.ctx, erc20, types.ModuleAddress, contract, "balanceOf", account)
+	res, err := suite.app.IntrarelayerKeeper.CallEVM(suite.ctx, erc20, types.ModuleAddress, contract, true, "balanceOf", account)
 	if err != nil {
 		return nil
 	}
@@ -323,7 +344,7 @@ func (suite *KeeperTestSuite) NameOf(contract common.Address) interface{} {
 
 	erc20 := contracts.ERC20BurnableAndMintableContract.ABI
 
-	res, err := suite.app.IntrarelayerKeeper.CallEVM(suite.ctx, erc20, types.ModuleAddress, contract, "name")
+	res, err := suite.app.IntrarelayerKeeper.CallEVM(suite.ctx, erc20, types.ModuleAddress, contract, true, "name")
 	if err != nil {
 		return nil
 	}

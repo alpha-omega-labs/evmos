@@ -62,16 +62,17 @@ func Setup(isCheckTx bool, feemarketGenesis *feemarkettypes.GenesisState) *Evmos
 	// generate genesis account
 	senderPrivKey := secp256k1.GenPrivKey()
 	acc := authtypes.NewBaseAccount(senderPrivKey.PubKey().Address().Bytes(), senderPrivKey.PubKey(), 0, 0)
-	balance := []banktypes.Balance{{
+	balance := banktypes.Balance{
 		Address: acc.GetAddress().String(),
 		Coins:   sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewInt(100000000000000))),
-	}}
+	}
 
 	db := dbm.NewMemDB()
 	app := NewEvmos(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, encoding.MakeConfig(ModuleBasics), simapp.EmptyAppOptions{})
 	if !isCheckTx {
 		// init chain must be called to stop deliverState from being nil
 		genesisState := NewDefaultGenesisState()
+		genesisState = GenesisStateWithValSet(app, genesisState, valSet, []authtypes.GenesisAccount{acc}, balance)
 
 		// Verify feeMarket genesis
 		if feemarketGenesis != nil {
@@ -81,8 +82,7 @@ func Setup(isCheckTx bool, feemarketGenesis *feemarkettypes.GenesisState) *Evmos
 
 			genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(feemarketGenesis)
 		}
-
-		genesisState = GenesisStateWithValSet(app, genesisState, valSet, []authtypes.GenesisAccount{acc}, balance)
+		// totalSupply := sdk.NewCoins()
 		stateBytes, err := json.MarshalIndent(genesisState, "", " ")
 		if err != nil {
 			panic(err)
@@ -112,7 +112,7 @@ func SetupTestingApp() (ibctesting.TestingApp, map[string]json.RawMessage) {
 
 func GenesisStateWithValSet(app *Evmos, genesisState simapp.GenesisState,
 	valSet *tmtypes.ValidatorSet, genAccs []authtypes.GenesisAccount,
-	balances []banktypes.Balance,
+	balances ...banktypes.Balance,
 ) simapp.GenesisState {
 	// set genesis accounts
 	authGenesis := authtypes.NewGenesisState(authtypes.DefaultParams(), genAccs)
