@@ -29,7 +29,12 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 				suite.Commit()
 
 				// Burn the 10 tokens of suite.address (owner)
-				_ = suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
+				res := suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
+				fmt.Println(*res)
+
+				balance := suite.app.BankKeeper.GetAllBalances(suite.ctx, sdk.AccAddress(suite.address.Bytes()))
+
+				fmt.Println("hello", balance)
 			},
 			true,
 		},
@@ -66,12 +71,9 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 			suite.Require().NoError(err)
 			suite.Commit()
 
-			fmt.Println(contractAddr)
-
 			tc.malleate(contractAddr)
 
 			balance := suite.app.BankKeeper.GetBalance(suite.ctx, sdk.AccAddress(suite.address.Bytes()), types.CreateDenom(contractAddr.String()))
-			fmt.Println(balance)
 			suite.Commit()
 			if tc.result {
 				// Check if the execution was successfull

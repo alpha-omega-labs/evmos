@@ -31,7 +31,6 @@ import (
 	"github.com/evmos/ethermint/encoding"
 	"github.com/evmos/ethermint/server/config"
 	"github.com/evmos/ethermint/tests"
-	ethermint "github.com/evmos/ethermint/types"
 	evm "github.com/evmos/ethermint/x/evm/types"
 	feemarkettypes "github.com/evmos/ethermint/x/feemarket/types"
 	tmjson "github.com/tendermint/tendermint/libs/json"
@@ -40,6 +39,7 @@ import (
 	"github.com/tharsis/evmos/x/intrarelayer/types/contracts"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	"github.com/cosmos/ibc-go/v6/testing/mock"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
@@ -61,8 +61,6 @@ type KeeperTestSuite struct {
 
 // Test helpers
 func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
-	checkTx := false
-
 	// account key
 	priv, err := ethsecp256k1.GenerateKey()
 	require.NoError(t, err)
@@ -76,10 +74,7 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 	suite.consAddress = consAddress
 
 	// setup feemarketGenesis params
-	feemarketGenesis := feemarkettypes.DefaultGenesisState()
-	feemarketGenesis.Params.EnableHeight = 1
-	feemarketGenesis.Params.NoBaseFee = false
-	suite.app = app.Setup(checkTx, feemarketGenesis)
+	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState())
 
 	if suite.mintFeeCollector {
 		privVal := mock.NewPV()
@@ -108,11 +103,6 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 		}
 
 		genesisState = app.GenesisStateWithValSet(suite.app, genesisState, valSet, []authtypes.GenesisAccount{acc}, balanceDel, balance)
-		// update total supply
-		// bankGenesis := banktypes.NewGenesisState(banktypes.DefaultGenesisState().Params, []banktypes.Balance{balance}, sdk.NewCoins(sdk.NewCoin(evm.DefaultEVMDenom, sdk.NewInt((int64(params.TxGas)-1)))), []banktypes.Metadata{})
-		// bz := suite.app.AppCodec().MustMarshalJSON(bankGenesis)
-		// require.NotNil(t, bz)
-		// genesisState[banktypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(bankGenesis)
 
 		// we marshal the genesisState of all module to a byte array
 		stateBytes, err := tmjson.MarshalIndent(genesisState, "", " ")
@@ -129,11 +119,11 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 		)
 	}
 
-	suite.ctx = suite.app.BaseApp.NewContext(checkTx, tmproto.Header{
+	suite.ctx = suite.app.BaseApp.NewContext(false, tmproto.Header{
 		Height:          1,
 		ChainID:         "evmos_9000-1",
 		Time:            time.Now().UTC(),
-		ProposerAddress: suite.consAddress.Bytes(),
+		ProposerAddress: consAddress.Bytes(),
 
 		Version: tmversion.Consensus{
 			Block: version.BlockProtocol,
@@ -153,24 +143,27 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 		ConsensusHash:      tmhash.Sum([]byte("consensus")),
 		LastResultsHash:    tmhash.Sum([]byte("last_result")),
 	})
-	queryHelperEvm := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
-	evm.RegisterQueryServer(queryHelperEvm, suite.app.EvmKeeper)
-	suite.queryClientEvm = evm.NewQueryClient(queryHelperEvm)
 
 	queryHelper := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
 	types.RegisterQueryServer(queryHelper, suite.app.IntrarelayerKeeper)
 	suite.queryClient = types.NewQueryClient(queryHelper)
 
-	ethAcc := &ethermint.EthAccount{
-		BaseAccount: authtypes.NewBaseAccount(sdk.AccAddress(suite.address.Bytes()), nil, 0, 0),
-		CodeHash:    common.BytesToHash(crypto.Keccak256(nil)).String(),
-	}
+	queryHelperEvm := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
+	evm.RegisterQueryServer(queryHelperEvm, suite.app.EvmKeeper)
+	suite.queryClientEvm = evm.NewQueryClient(queryHelperEvm)
 
-	suite.app.AccountKeeper.SetAccount(suite.ctx, ethAcc)
+	// ethAcc := &ethermint.EthAccount{
+	// 	BaseAccount: authtypes.NewBaseAccount(sdk.AccAddress(suite.address.Bytes()), nil, 0, 0),
+	// 	CodeHash:    common.BytesToHash(crypto.Keccak256(nil)).String(),
+	// }
+
+	// suite.app.AccountKeeper.SetAccount(suite.ctx, ethAcc)
 
 	valAddr := sdk.ValAddress(suite.address.Bytes())
-	validator, err := stakingtypes.NewValidator(valAddr, priv.PubKey(), stakingtypes.Description{})
+	validator, err := stakingtypes.NewValidator(valAddr, privCons.PubKey(), stakingtypes.Description{})
 	require.NoError(t, err)
+	validator = stakingkeeper.TestingUpdateValidator(suite.app.StakingKeeper, suite.ctx, validator, true)
+	suite.app.StakingKeeper.AfterValidatorCreated(suite.ctx, validator.GetOperator())
 	err = suite.app.StakingKeeper.SetValidatorByConsAddr(suite.ctx, validator)
 	require.NoError(t, err)
 	suite.app.StakingKeeper.SetValidator(suite.ctx, validator)
@@ -239,9 +232,15 @@ func (suite *KeeperTestSuite) DeployContract(name string, symbol string) (common
 }
 
 func (suite *KeeperTestSuite) Commit() {
-	_ = suite.app.Commit()
+	suite.CommitAndBeginBlockAfter(time.Hour * 1)
+}
+
+func (suite *KeeperTestSuite) CommitAndBeginBlockAfter(t time.Duration) {
 	header := suite.ctx.BlockHeader()
+	_ = suite.app.Commit()
+
 	header.Height += 1
+	header.Time = header.Time.Add(t)
 	suite.app.BeginBlock(abci.RequestBeginBlock{
 		Header: header,
 	})
