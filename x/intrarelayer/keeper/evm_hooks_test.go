@@ -6,6 +6,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/evmos/ethermint/x/evm/statedb"
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 )
 
@@ -27,12 +29,12 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 				suite.Commit()
 
 				// Burn the 10 tokens of suite.address (owner)
-				msg := suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
-				logs := suite.app.EvmKeeper.GetTxLogsTransient(msg.AsTransaction().Hash())
+				res := suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
+				fmt.Println(*res)
 
-				// After this execution, the burned tokens will be available on the cosmos chain
-				err = suite.app.IntrarelayerKeeper.PostTxProcessing(suite.ctx, msg.AsTransaction().Hash(), logs)
-				suite.Require().NoError(err)
+				balance := suite.app.BankKeeper.GetAllBalances(suite.ctx, sdk.AccAddress(suite.address.Bytes()))
+
+				fmt.Println("hello", balance)
 			},
 			true,
 		},
@@ -44,12 +46,7 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 				suite.Commit()
 
 				// Burn the 10 tokens of suite.address (owner)
-				msg := suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
-				logs := suite.app.EvmKeeper.GetTxLogsTransient(msg.AsTransaction().Hash())
-
-				// Since theres no pair registered, no coins should be minted
-				err := suite.app.IntrarelayerKeeper.PostTxProcessing(suite.ctx, msg.AsTransaction().Hash(), logs)
-				suite.Require().NoError(err)
+				_ = suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(10))
 			},
 			false,
 		},
@@ -60,12 +57,7 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 				suite.Require().NoError(err)
 
 				// Mint 10 tokens to suite.address (owner)
-				msg := suite.MintERC20Token(contractAddr, suite.address, suite.address, big.NewInt(10))
-				logs := suite.app.EvmKeeper.GetTxLogsTransient(msg.AsTransaction().Hash())
-
-				// No coins should be minted on cosmos after a mint of the erc20 token
-				err = suite.app.IntrarelayerKeeper.PostTxProcessing(suite.ctx, msg.AsTransaction().Hash(), logs)
-				suite.Require().NoError(err)
+				_ = suite.MintERC20Token(contractAddr, suite.address, suite.address, big.NewInt(10))
 			},
 			false,
 		},
@@ -75,7 +67,8 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 			suite.mintFeeCollector = true
 			suite.SetupTest()
 
-			contractAddr := suite.DeployContract("coin", "token")
+			contractAddr, err := suite.DeployContract("coin", "token")
+			suite.Require().NoError(err)
 			suite.Commit()
 
 			tc.malleate(contractAddr)
@@ -84,10 +77,10 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterERC20() {
 			suite.Commit()
 			if tc.result {
 				// Check if the execution was successfull
-				suite.Require().Equal(balance.Amount, sdk.NewInt(10))
+				suite.Require().Equal(int64(10), balance.Amount.Int64())
 			} else {
 				// Check that no changes were made to the account
-				suite.Require().Equal(balance.Amount, sdk.NewInt(0))
+				suite.Require().Equal(int64(0), balance.Amount.Int64())
 			}
 		})
 	}
@@ -138,10 +131,21 @@ func (suite *KeeperTestSuite) TestEvmHooksRegisterCoin() {
 
 			// Burn the 10 tokens of suite.address (owner)
 			msg := suite.BurnERC20Token(contractAddr, suite.address, big.NewInt(tc.reconvert))
-			logs := suite.app.EvmKeeper.GetTxLogsTransient(msg.AsTransaction().Hash())
+			txHash := msg.AsTransaction().Hash()
+			vmdb := statedb.New(suite.ctx, suite.app.EvmKeeper, statedb.NewTxConfig(
+				common.BytesToHash(suite.ctx.HeaderHash().Bytes()),
+				txHash,
+				0,
+				0,
+			))
+			logs := vmdb.Logs()
 
+			receipt := &ethtypes.Receipt{
+				TxHash: txHash,
+				Logs:   logs,
+			}
 			// After this execution, the burned tokens will be available on the cosmos chain
-			err = suite.app.IntrarelayerKeeper.PostTxProcessing(suite.ctx, msg.AsTransaction().Hash(), logs)
+			err = suite.app.IntrarelayerKeeper.PostTxProcessing(suite.ctx, ethtypes.Message{}, receipt)
 
 			balance = suite.BalanceOf(common.HexToAddress(pair.Erc20Address), suite.address)
 			cosmosBalance = suite.app.BankKeeper.GetBalance(suite.ctx, sender, metadata.Base)

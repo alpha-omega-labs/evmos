@@ -1,10 +1,14 @@
 package keeper
 
 import (
+	"strings"
 	"time"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	"github.com/gogo/protobuf/proto"
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 )
 
@@ -23,7 +27,7 @@ func (k Keeper) AfterProposalDeposit(ctx sdk.Context, proposalID uint64, _ sdk.A
 	newVotingPeriod := k.GetVotingPeriod(ctx, types.ProposalTypeRegisterCoin)
 
 	// perform a no-op if voting periods are equal
-	if newVotingPeriod == votingPeriod {
+	if &newVotingPeriod == votingPeriod {
 		return
 	}
 
@@ -34,31 +38,44 @@ func (k Keeper) AfterProposalDeposit(ctx sdk.Context, proposalID uint64, _ sdk.A
 	}
 
 	// check if the proposal is on voting period
-	if proposal.Status != govtypes.StatusVotingPeriod {
+	if proposal.Status != govv1.StatusVotingPeriod {
 		return
 	}
 
-	content := proposal.GetContent()
+	message := proposal.GetMessages()[0]
+
+	// sdkMsg := &govv1.MsgExecLegacyContent{
+	// 	Content:   message,
+	// 	Authority: authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	// }
+
+	decodeMsg := new(codectypes.Any)
+
+	err := proto.Unmarshal(message.Value, decodeMsg)
+	if err != nil {
+		return
+	}
 
 	// check if proposal content and type matches the given type
-	if content.ProposalType() != types.ProposalTypeRegisterCoin && content.ProposalType() != types.ProposalTypeRegisterERC20 {
+	if !strings.Contains(decodeMsg.TypeUrl, types.ProposalTypeRegisterCoin) && !strings.Contains(decodeMsg.TypeUrl, types.ProposalTypeRegisterERC20) {
 		return
 	}
 
-	switch content.(type) {
-	case *types.RegisterCoinProposal, *types.RegisterERC20Proposal:
-		// valid proposal types
-	default:
-		return
-	}
+	// switch content.(type) {
+	// case *types.RegisterCoinProposal, *types.RegisterERC20Proposal:
+	// 	// valid proposal types
+	// default:
+	// 	return
+	// }
 
 	originalEndTime := proposal.VotingEndTime
-	proposal.VotingEndTime = proposal.VotingStartTime.Add(newVotingPeriod)
+	votingEndTime := proposal.VotingStartTime.Add(newVotingPeriod)
+	proposal.VotingEndTime = &votingEndTime
 
 	// remove old proposal from the queue with old voting end time
-	k.govKeeper.RemoveFromActiveProposalQueue(ctx, proposalID, originalEndTime)
+	k.govKeeper.RemoveFromActiveProposalQueue(ctx, proposalID, *originalEndTime)
 	// reinsert the proposal to the queue with the updated voting end time
-	k.govKeeper.InsertActiveProposalQueue(ctx, proposalID, proposal.VotingEndTime)
+	k.govKeeper.InsertActiveProposalQueue(ctx, proposalID, *proposal.VotingEndTime)
 	// update the proposal
 	k.govKeeper.SetProposal(ctx, proposal)
 
@@ -85,6 +102,6 @@ func (k Keeper) GetVotingPeriod(ctx sdk.Context, proposalType string) time.Durat
 		return params.TokenPairVotingPeriod
 	default:
 		vp := k.govKeeper.GetVotingParams(ctx)
-		return vp.VotingPeriod
+		return *vp.VotingPeriod
 	}
 }

@@ -5,7 +5,7 @@ import (
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/tharsis/ethermint/tests"
+	"github.com/evmos/ethermint/tests"
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 )
 
@@ -14,14 +14,16 @@ const (
 	erc20Symbol     = "token"
 	cosmosTokenName = "coin"
 	defaultExponent = uint32(18)
+	erc20Decimals   = uint8(18)
 	zeroExponent    = uint32(0)
 )
 
 func (suite *KeeperTestSuite) setupRegisterERC20Pair() common.Address {
 	suite.SetupTest()
-	contractAddr := suite.DeployContract(erc20Name, erc20Symbol)
+	contractAddr, err := suite.DeployContract(erc20Name, erc20Symbol)
+	suite.Require().NoError(err)
 	suite.Commit()
-	_, err := suite.app.IntrarelayerKeeper.RegisterERC20(suite.ctx, contractAddr)
+	_, err = suite.app.IntrarelayerKeeper.RegisterERC20(suite.ctx, contractAddr)
 	suite.Require().NoError(err)
 	return contractAddr
 }
@@ -204,14 +206,15 @@ func (suite KeeperTestSuite) TestRegisterERC20() {
 		suite.Run(fmt.Sprintf("Case %s", tc.name), func() {
 			suite.SetupTest() // reset
 
-			contractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+			contractAddr, err := suite.DeployContract(erc20Name, erc20Symbol)
+			suite.Require().NoError(err)
 			suite.Commit()
 			coinName := types.CreateDenom(contractAddr.String())
 			pair = types.NewTokenPair(contractAddr, coinName, true, types.OWNER_EXTERNAL)
 
 			tc.malleate()
 
-			_, err := suite.app.IntrarelayerKeeper.RegisterERC20(suite.ctx, contractAddr)
+			_, err = suite.app.IntrarelayerKeeper.RegisterERC20(suite.ctx, contractAddr)
 			metadata, found := suite.app.BankKeeper.GetDenomMetaData(suite.ctx, coinName)
 			if tc.expPass {
 				suite.Require().NoError(err, tc.name)
@@ -251,7 +254,7 @@ func (suite KeeperTestSuite) TestToggleRelay() {
 		{
 			"token not registered",
 			func() {
-				contractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				contractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 				suite.Commit()
 				pair = types.NewTokenPair(contractAddr, cosmosTokenName, true, types.OWNER_MODULE)
 			},
@@ -261,7 +264,7 @@ func (suite KeeperTestSuite) TestToggleRelay() {
 		{
 			"token not registered - pair not found",
 			func() {
-				contractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				contractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 				suite.Commit()
 				pair = types.NewTokenPair(contractAddr, cosmosTokenName, true, types.OWNER_MODULE)
 				suite.app.IntrarelayerKeeper.SetERC20Map(suite.ctx, common.HexToAddress(pair.Erc20Address), pair.GetID())
@@ -331,7 +334,7 @@ func (suite KeeperTestSuite) TestUpdateTokenPairERC20() {
 		{
 			"token not registered",
 			func() {
-				contractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				contractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 				suite.Commit()
 				pair = types.NewTokenPair(contractAddr, cosmosTokenName, true, types.OWNER_MODULE)
 			},
@@ -340,7 +343,7 @@ func (suite KeeperTestSuite) TestUpdateTokenPairERC20() {
 		{
 			"token not registered - pair not found",
 			func() {
-				contractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				contractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 				suite.Commit()
 				pair = types.NewTokenPair(contractAddr, cosmosTokenName, true, types.OWNER_MODULE)
 
@@ -351,7 +354,7 @@ func (suite KeeperTestSuite) TestUpdateTokenPairERC20() {
 		{
 			"token not registered - Metadata not found",
 			func() {
-				contractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				contractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 				suite.Commit()
 				pair = types.NewTokenPair(contractAddr, cosmosTokenName, true, types.OWNER_MODULE)
 
@@ -381,7 +384,7 @@ func (suite KeeperTestSuite) TestUpdateTokenPairERC20() {
 				suite.Commit()
 
 				// Deploy a new contrat with the same values
-				newContractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				newContractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 			},
 			false,
 		},
@@ -398,7 +401,7 @@ func (suite KeeperTestSuite) TestUpdateTokenPairERC20() {
 				suite.Commit()
 
 				// Deploy a new contrat with the same values
-				newContractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				newContractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 			},
 			false,
 		},
@@ -415,7 +418,7 @@ func (suite KeeperTestSuite) TestUpdateTokenPairERC20() {
 				suite.Commit()
 
 				// Deploy a new contrat with the same values
-				newContractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				newContractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 			},
 			false,
 		},
@@ -432,7 +435,7 @@ func (suite KeeperTestSuite) TestUpdateTokenPairERC20() {
 				suite.Commit()
 
 				// Deploy a new contrat with the same values
-				newContractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				newContractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 			},
 			false,
 		},
@@ -449,7 +452,7 @@ func (suite KeeperTestSuite) TestUpdateTokenPairERC20() {
 				suite.Commit()
 
 				// Deploy a new contrat with the same values
-				newContractAddr = suite.DeployContract(erc20Name, erc20Symbol)
+				newContractAddr, _ = suite.DeployContract(erc20Name, erc20Symbol)
 			},
 			true,
 		},

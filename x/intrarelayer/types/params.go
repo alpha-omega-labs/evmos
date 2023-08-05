@@ -4,7 +4,7 @@ import (
 	fmt "fmt"
 	"time"
 
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
@@ -36,7 +36,7 @@ func NewParams(
 func DefaultParams() Params {
 	return Params{
 		EnableIntrarelayer:    true,
-		TokenPairVotingPeriod: govtypes.DefaultPeriod,
+		TokenPairVotingPeriod: govv1.DefaultPeriod,
 		EnableEVMHook:         true,
 	}
 }

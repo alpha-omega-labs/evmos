@@ -8,8 +8,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	evmtypes "github.com/tharsis/ethermint/x/evm/types"
+	evmtypes "github.com/evmos/ethermint/x/evm/types"
 
 	"github.com/tharsis/evmos/x/intrarelayer/types"
 	"github.com/tharsis/evmos/x/intrarelayer/types/contracts"
@@ -21,7 +22,7 @@ var _ evmtypes.EvmHooks = (*Keeper)(nil)
 // if it does, delete minting from ConvertErc20
 
 // PostTxProcessing implements EvmHooks.PostTxProcessing
-func (k Keeper) PostTxProcessing(ctx sdk.Context, txHash common.Hash, logs []*ethtypes.Log) error {
+func (k Keeper) PostTxProcessing(ctx sdk.Context, msg core.Message, receipt *ethtypes.Receipt) error {
 	params := k.GetParams(ctx)
 	if !params.EnableEVMHook {
 		return sdkerrors.Wrap(types.ErrInternalTokenPair, "EVM Hook is currently disabled")
@@ -29,7 +30,7 @@ func (k Keeper) PostTxProcessing(ctx sdk.Context, txHash common.Hash, logs []*et
 
 	erc20 := contracts.ERC20BurnableContract.ABI
 
-	for i, log := range logs {
+	for i, log := range receipt.Logs {
 		if len(log.Topics) < 3 {
 			continue
 		}
@@ -98,7 +99,7 @@ func (k Keeper) PostTxProcessing(ctx sdk.Context, txHash common.Hash, logs []*et
 		// Mint the coin only if ERC20 is external
 		switch pair.ContractOwner {
 		case types.OWNER_MODULE:
-			_, err = k.CallEVM(ctx, erc20, types.ModuleAddress, contractAddr, "burn", tokens)
+			_, err = k.CallEVM(ctx, erc20, types.ModuleAddress, contractAddr, true, "burn", tokens)
 		case types.OWNER_EXTERNAL:
 			err = k.bankKeeper.MintCoins(ctx, types.ModuleName, coins)
 		default:
@@ -121,7 +122,7 @@ func (k Keeper) PostTxProcessing(ctx sdk.Context, txHash common.Hash, logs []*et
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipient, coins); err != nil {
 			k.Logger(ctx).Debug(
 				"failed to process EVM hook for ER20 -> coin conversion",
-				"tx-hash", txHash.Hex(), "log-idx", i,
+				"tx-hash", receipt.TxHash.Hex(), "log-idx", i,
 				"coin", pair.Denom, "contract", pair.Erc20Address, "error", err.Error(),
 			)
 			continue
