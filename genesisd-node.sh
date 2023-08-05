@@ -55,11 +55,13 @@ cat << "EOF"
 EOF
 sleep 15s
 
-# SYSTEM UPDATE, INSTALLATION OF THE FOLLOWING PACKAGES: jq git wget make gcc build-essential snapd wget ponysay, INSTALLATION OF GO 1.17 via snap
+# SYSTEM UPDATE, INSTALLATION OF THE FOLLOWING PACKAGES: jq git wget make gcc build-essential snapd wget ponysay, INSTALLATION OF GO 1.20 via snap
 
 sudo apt-get update -y
 sudo apt-get install jq git wget make gcc build-essential snapd wget -y
-snap install --channel=1.17/stable go --classic
+snap install --channel=1.20/stable go --classic
+snap refresh --channel=1.20/stable go --classic
+
 export PATH=$PATH:$(go env GOPATH)/bin
 echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc
 
