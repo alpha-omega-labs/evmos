@@ -69,11 +69,22 @@ make install
 # THERE MIGHT BE OLD BACKUP IN DIRECTORY NAMED .evmosd_backup, YOU CAN TRY USE THIS. 
 cd
 
-for dir in .genesisd_backup_*; do
-    if [ -d "$dir" ]; then
-        rsync -av --exclude=config/ --exclude=data/ "$dir/" .genesisd/
-    fi
-done
+# If evmosd_backup exists, rsync from it
+if [ -d "evmosd_backup" ]; then
+    rsync -av --exclude=config/ --exclude=data/ evmosd_backup/ .genesisd/
+else
+    # Loop through folders matching the pattern and rsync from them
+    for dir in .genesisd_backup_*; do
+        if [ -d "$dir" ]; then
+            rsync -av --exclude=config/ --exclude=data/ "$dir/" .genesisd/
+        fi
+    done
+fi
+
+
+
+
+
 
 # SETTING UP THE NEW chain-id in CONFIG
 genesisd config chain-id genesis_29-2
