@@ -68,10 +68,9 @@ make install
 # RESTORE KEYS FROM BACKUP MADE DURING V0.46 UPGRADE - NOTE DATE AFTER _backup_; IF YOU HAVE SEVERAL BACKUPS, USE OLDEST!
 # THERE MIGHT BE OLD BACKUP IN DIRECTORY NAMED .evmosd_backup, YOU CAN TRY USE THIS. 
 cd
-
 # If evmosd_backup exists, rsync from it
-if [ -d "evmosd_backup" ]; then
-    rsync -av --exclude=config/ --exclude=data/ evmosd_backup/ .genesisd/
+if [ -d ".evmosd_backup" ]; then
+    rsync -av --exclude=config/ --exclude=data/ .evmosd_backup/ .genesisd/
 else
     # Loop through folders matching the pattern and rsync from them
     for dir in .genesisd_backup_*; do
@@ -80,11 +79,6 @@ else
         fi
     done
 fi
-
-
-
-
-
 
 # SETTING UP THE NEW chain-id in CONFIG
 genesisd config chain-id genesis_29-2
